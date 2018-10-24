@@ -1,10 +1,11 @@
 #!/bin/bash
 #Script to get all repositories under a team from bitbucket
- 
+
 script=$0
 team=""
 username=""
 password=""
+branches="no"
 
 #Set fonts for Help.
 NORM=`tput sgr0`
@@ -20,7 +21,8 @@ function show_help {
     echo -e "${REV}-t${NORM}  --The name of the team you wish to clone all repos."
     echo -e "\nThe following command line switches are optional:"
     echo -e "${REV}-p${NORM}  --Your bitbucket password. If not supplied you will be prompted to enter."
-    echo -e "${REV}-h${NORM}  --Displays this help message. No further functions are performed."\\n
+    echo -e "${REV}-h${NORM}  --Displays this help message. No further functions are performed."
+    echo -e "${REV}-b${NORM}  --Clone branches too."\\n
     exit 1
 }
 
@@ -50,18 +52,31 @@ function process_repos {
     do
         if [ ! -d "$repo_name" ]; then
             echo "Cloning " $repo_name
-            git clone git@bitbucket.org:bitnetio/$repo_name.git
+            git clone git@bitbucket.org:$username/$repo_name.git
 
             if [ $? != 0 ]; then
                 tput setaf 1; echo "Failed cloning repo"; exit 1
             fi
-
+            
+            # Cloning all the branches?
+            if [ $branches = "yes" ]; then 
+                echo "Cloning branches..."
+                cd $repo_name
+	        for remote in `git branch -r  \
+                               | grep -v HEAD \
+                               | grep -v master`; do 
+                    git branch --track $remote; 
+                done
+	        git pull --all 
+                echo "Done cloning branches!"
+                cd ..
+            fi
         else
             echo "$repo_name already exists, pulling latest"
 
             pushd "$repo_name" > /dev/null
       
-            git pull
+            git pull --all
 
             if [ $? != 0 ]; then
                 tput setaf 1; echo "Failed pulling latest"; exit 1
@@ -73,7 +88,7 @@ function process_repos {
     done
 }
 
-while getopts "h?t:u:p:" opt; do
+while getopts "h?t:u:p:b" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -85,6 +100,8 @@ while getopts "h?t:u:p:" opt; do
         ;;
     p)  password=$OPTARG
 	;;
+    b)  branches="yes"
+        ;;
     esac
 done
 
